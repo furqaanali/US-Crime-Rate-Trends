@@ -1,0 +1,247 @@
+
+<html>
+<script src='https://d3js.org/d3.v5.min.js'></script>
+
+<style>
+circle {
+  //fill: lightblue;
+  stroke: black;
+}
+div.tooltip {	
+  position: absolute;			
+  text-align: center;			
+  width: 150;					
+  height: 40;					
+  padding: 2px;				
+  font: 12px sans-serif;		
+  background: lightsteelblue;	
+  border: 0px;		
+  border-radius: 8px;			
+  pointer-events: none;			
+}
+.butt {
+  border-style: solid;
+  height:20px;
+  width:25px;
+  cursor:pointer;
+}
+.square {
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  border: 2px solid;
+}
+</style>
+
+<h1>US Crime Rate Trends</h1>
+<button id='btn1' class='butt' onclick="scene=1; update()"> 1</button>
+<button id='btn2' class='butt' onclick="scene=2; update()"> 2</button>
+<button id='btn3' class='butt' onclick="scene=3; update()"> 3 </button>
+<button id='btn4' class='butt' onclick="scene=4; update()"> 4 </button>
+<button id='btn5' class='butt' onclick="scene=5; update()"> 5 </button>
+<button id='btn6' class='butt' onclick="scene=6; update()"> 6 </button>
+<button id='next' onclick="if (scene < 6) { scene = scene + 1; } update()";> Next </button>
+<select style='visibility: hidden' id="selectButton"></select>
+<h3 id="welcome">Welcome to the US Crime Rate Trends Visualization, where we explore the different shifts in crime levels since the 60's!<br>Press the 'Next' button to continue.</h3>
+
+<body onload="init()">
+
+<svg id='myDiv' width=800 height=500></svg>
+<div id='legend' style='float:right'></div>
+<h2 id="caption"></h2>
+
+<script>
+
+  const svgX = 75;
+
+  var scene = 0;
+
+  var data = [];
+  var data1 = [];
+  var data2 = [];
+  var data3 = [];
+
+  var tooltip = d3.select("body").append("div")	
+    .attr("class", "tooltip")				
+    .style("opacity", 0);
+
+  var xs = d3.scaleTime().domain([new Date("1960"), new Date("2015-01-02")]).range([0, 700]);
+  var ys = d3.scaleLinear().domain([0, 6000]).range([400, 0]);
+
+  const options = ['Total','Violent','Property','Murder','Rape','Robbery','Aggravated Assault','Burglary','Larceny Theft','Vehicle Theft'];
+  const dataCols = ['Total','Violent ','Property ','Murder ','Rape ','Robbery ','Aggravated-Assault ','Burglary ','Larceny-Theft ','Vehicle-Theft '];
+  const yAxes = [ [1800, 6000], [0, 800], [1500, 5500], [3, 12], [0, 50], [0,350], [0, 500], [400, 1800], [500, 3500], [100, 750] ];
+  const colors = ['lightblue', 'lightgreen', 'darkorange', 'magenta', 'purple', 'pink', 'grey', 'red', 'darkgreen', 'darkblue'];
+  const captions = [ 'From 1960 to 1980, there was a heavy upward spike in the total crime rate in the United States.',
+                     "Between 1980 and 1991, there was a fluctuation, decreasing for a few years before increasing back towards it's original value.",
+                     'From 1991 onward, the total crime rate steadily fell.',
+                     "How can this rise and fall be explained? <br />Although there are many factors that contributed to these trends, two factors likely have played key roles. <br />First, the baby boomers period was from 1946 to 1964. With this changing the demographic to include a larger percentage of young males, crime rates spiked. As the baby boom ended and abortion was also legalized in 1973, the young male and unplanned children populations would decrease over the span of 20 years, followed by a decrease in crime rates.",
+                     'The second key factor is lead regulation. Lead exposure leads to increased aggressive behavior. In 1986, the lead content in gasoline was limited to 0.1 grams per gallon--a reduction of 90%. Furthermore, by 1996 leaded fuel was banned altogether. With these reductions of lead consumption, crime rates began to steadily decrease.',
+                     'Explore the trends in the different types of crime from 1960-2014 yourself using the dropdown list' ]
+
+  var selectedOption = 'Total';
+
+  const line = d3.line()
+    .x(d => xs(new Date(d['Year '])))
+    .y(d => ys(d[dataCols[options.indexOf(selectedOption)]]));
+
+
+  async function init() {
+    console.log("HELLO")
+    data = await d3.csv('https://gist.githubusercontent.com/GeekOnAcid/da022affd36310c96cd4/raw/9c2ac2b033979fcf14a8d9b2e3e390a4bcc6f0e3/us_nr_of_crimes_1960_2014.csv');
+
+    data1 = data.filter(function(d){return d['Year '] <= 1980});
+    data2 = data.filter(function(d){return d['Year '] >= 1980 & d['Year '] <= 1991});
+    data3 = data.filter(function(d){return d['Year '] >= 1991});
+
+    d3.select("#selectButton").selectAll('option').data(options).enter().append('option')
+      .text(function (d) { return d; })
+      .attr("value", function (d) { return d; })
+
+    d3.select("#selectButton").on("change", function(d) {
+      selectedOption = d3.select(this).property("value");
+      ys = d3.scaleLinear().domain(yAxes[options.indexOf(selectedOption)]).range([400, 0]);
+      document.getElementById('myDiv').innerHTML = '';
+      drawAxes();
+      addData(data);
+    })
+  }
+
+  function update() {
+    document.getElementById("selectButton").style.visibility = "hidden";
+    document.getElementById("next").style.visibility = "visible";
+    document.getElementById("welcome").innerHTML = "";
+    for (let i = 1; i < 7; i++) { 
+      document.getElementById('btn' + i).style.borderStyle = "solid";
+    }
+    document.getElementById('myDiv').innerHTML = "";
+    document.getElementById('btn' + scene).style.borderStyle = "inset";
+    document.getElementById('selectButton').selectedIndex = 0;
+    document.getElementById('legend').innerHTML = '';
+    document.getElementById('caption').innerHTML = captions[scene-1];
+  
+    console.log('scene = ' + scene);
+
+    selectedOption = 'Total';
+    ys = d3.scaleLinear().domain(yAxes[options.indexOf(selectedOption)]).range([400, 0]);
+
+    drawAxes();
+
+    if (scene >= 1) { addData(data1); }
+    if (scene >= 1 && scene <= 3) { addAnnotation('1980', ''); }
+
+    if (scene >= 2) { addData(data2); }
+    if (scene >= 2 && scene <= 3) { addAnnotation('1991', ''); }
+
+    if (scene >= 3) { addData(data3); }
+
+    if (scene == 4) { addAnnotation('1964', 'end of baby boom'); addAnnotation('1973', 'abortion legalized nationwide', 0); }
+    if (scene == 5) { addAnnotation('1986', 'gasoline lead content restriction', 0); addAnnotation('1996', 'leaded fuel banned', 20); }
+
+    if (scene == 6)  { 
+      document.getElementById('myDiv').innerHTML = '';
+      document.getElementById("selectButton").style.visibility = "visible";
+      document.getElementById("next").style.visibility = "hidden";
+
+      var legend = document.getElementById('legend');
+      for (let i = 0; i < options.length; i++) {
+        var map = document.createElement("div");
+        var square = document.createElement("div");
+        var crimeType = document.createElement("span");
+        square.className = "square";
+        crimeType.innerHTML = options[i];
+        square.style.backgroundColor = colors[i];
+        map.appendChild(square);
+        map.appendChild(crimeType);
+        legend.appendChild(map);
+      }
+
+      selectedOption = 'Total';
+      ys = d3.scaleLinear().domain([0, 6000]).range([400, 0]);
+      drawAxes();
+      for (let i = 0; i < options.length; i++) {
+        selectedOption = options[i];
+        d3.select('svg').append('g').attr("transform", "translate("+svgX+",50)").append('path')
+          .datum(data)
+          .attr('d', line)
+          .attr("fill", "none")
+          .attr("stroke", colors[options.indexOf(selectedOption)])
+          .attr("stroke-width", 1.5);
+        d3.select("svg").append("g").attr("transform", "translate("+svgX+",50)")
+          .selectAll("circle").data(data).enter().append("circle")
+          .attr("cx", function(d) { return xs(new Date(d['Year '])) })
+          .attr("cy", function(d) { return ys(d[dataCols[options.indexOf(selectedOption)]]) })
+          .attr("fill", colors[options.indexOf(selectedOption)])
+          .attr("r",  3.3);
+      }					
+    }
+  }
+
+  function drawAxes() {
+    d3.select("svg").append("g").attr("transform", "translate("+svgX+",50)").attr("fill", "none").attr("font-size", "10").attr("font-family", "sans-serif").attr("text-anchor", "end")
+      .call(d3.axisLeft(ys));
+    d3.select("svg").append("g").attr("transform", "translate("+svgX+",450)")
+      .attr("fill", "none").attr("font-size", "10").attr("font-family", "sans-serif").attr("text-anchor", "end")
+      .call(d3.axisBottom(xs));
+    d3.select("svg").append("g").attr("transform", "translate(400,500)").append("text")
+      .attr("class", "x label")
+      .attr("text-anchor", "end")
+      .text("Year");
+    d3.select("svg").append("g").attr("transform", "translate(25,150)").append("text")
+      .attr("class", "y label")
+      .attr("text-anchor", "end")
+      .attr("transform", "rotate(-90)")
+      .text("Crime-Rate per 100,000 People");
+  }
+
+  function addAnnotation(year, text, y) {
+    d3.select("svg").append("g").attr("transform", "translate("+svgX+",50)").append("line")
+      .attr("x1", xs(new Date(year)))
+      .attr("y1", y)
+      .attr("x2", xs(new Date(year)))
+      .attr("y2", 400)
+      .style("stroke-dasharray","5,5")
+      .style("stroke", "red")
+      .style("fill", "none");
+    d3.select("svg").append("g").attr("transform", "translate(20,40)").append("text")
+      .attr("x", xs(new Date(year)))
+      .attr("y", y)
+      .text(text)
+      .style("font-size", "14px")
+      .style('fill', 'red');
+  }
+
+  function addData(dataset) {
+    console.log(selectedOption);
+    d3.select('svg').append('g').attr("transform", "translate("+svgX+",50)").append('path')
+      .datum(dataset)
+      .attr('d', line)
+      .attr("fill", "none")
+      .attr("stroke", colors[options.indexOf(selectedOption)])
+      .attr("stroke-width", 1.5);
+    d3.select("svg").append("g").attr("transform", "translate("+svgX+",50)")
+      .selectAll("circle").data(dataset).enter().append("circle")
+      .attr("cx", function(d) { return xs(new Date(d['Year '])) })
+      .attr("cy", function(d) { return ys(d[dataCols[options.indexOf(selectedOption)]]) })
+      .attr("r",  3.3)
+      .attr("fill", colors[options.indexOf(selectedOption)])
+      .on("mouseover", function(d) {		
+        tooltip.transition()		
+          .duration(200)		
+            .style("opacity", .9);		
+        tooltip.html("Year: " + d['Year '] + "<br />" + dataCols[options.indexOf(selectedOption)] + ": " + d[dataCols[options.indexOf(selectedOption)]])	
+          .style("left", (d3.event.pageX) + "px")		
+          .style("top", (d3.event.pageY - 28) + "px");	
+      })					
+      .on("mouseout", function(d) {		
+        tooltip.transition()		
+          .duration(500)		
+          .style("opacity", 0);	
+      });
+  }
+
+</script>
+</body>
+</html>
+
+
